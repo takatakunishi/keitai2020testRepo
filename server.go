@@ -34,6 +34,8 @@ func main() {
 	})
 	router, err := rest.MakeRouter(
 		rest.Get("/aps/server.cgi/getMethod", getMethod),
+		rest.Get("/aps/server.cgi/getSpotsData", getSpotsData),
+		rest.Get("/aps/server.cgi/getSpotName", getSpotName),
 	)
 	if err != nil {
 		log.Fatal(err)
@@ -70,6 +72,39 @@ func getMethod(w rest.ResponseWriter, r *rest.Request) {
 	w.WriteJson(&method)
 }
 
+func getSpotsData(w rest.ResponseWriter, r *rest.Request) {
+	rawData, err := getSimpleJSON(filePath)
+	if err != nil {
+		rest.Error(w, err.Error(), http.StatusInternalServerError)
+		log.Fatal(err)
+		return
+	}
+
+	data := rawData.Get("Spot")
+
+	spots := make([]Place, 0)
+	for _, v := range data.MustMap() {
+		jsonData, _ := json.Marshal(v)
+		if err != nil {
+			rest.Error(w, err.Error(), http.StatusInternalServerError)
+			log.Fatal(err)
+			break
+		}
+		var place Place
+		err = json.Unmarshal(jsonData, &place)
+		if err != nil {
+			rest.Error(w, err.Error(), http.StatusInternalServerError)
+			log.Fatal(err)
+			break
+		}
+		spots = append(spots, place)
+	}
+
+	var result Spots
+	result.Spot = spots
+	w.WriteJson(&result)
+}
+
 // getAllData 作品データをすべて送るAPI
 func getAllData(w rest.ResponseWriter, r *rest.Request) {
 
@@ -103,6 +138,26 @@ func getAllData(w rest.ResponseWriter, r *rest.Request) {
 
 	result.Id = works
 
+	w.WriteJson(&result)
+}
+
+func getSpotName(w rest.ResponseWriter, r *rest.Request) {
+	rawData, err := getSimpleJSON(filePath)
+	if err != nil {
+		rest.Error(w, err.Error(), http.StatusInternalServerError)
+		log.Fatal(err)
+		return
+	}
+
+	data := rawData.Get("Spot")
+
+	spotName := make([]string, 0)
+	for k, _ := range data.MustMap() {
+		spotName = append(spotName, k)
+	}
+
+	var result SpotsName
+	result.SpotsName = spotName
 	w.WriteJson(&result)
 }
 
@@ -279,6 +334,7 @@ func readFile(filename string) ([]byte, error) {
 // Method is return method
 type Method struct {
 	GetSpotName     string `json:"GetSpotName"`
+	GetSpotsData    string `json:"GetSpotsData"`
 	GetSpotEmotion  string `json:"GetSpotEmotion"`
 	GetSadSpot      string `json:"GetSadSpot"`
 	GetHappySpot    string `json:"GetHappySpot"`
@@ -286,6 +342,29 @@ type Method struct {
 	GetAngrySpot    string `json:"GetAngrySpot"`
 	GetDislikeSpot  string `json:"GetDislikeSpot"`
 	GetSurpriseSpot string `json:"GetSurpriseSpot"`
+	GetMthod        string `json:"GetMthod"`
+}
+
+// PlaceData is explain spot data
+type PlaceData struct {
+	Latitude  float32   `json:"Latitude"`
+	Longitude float32   `json:"Longitude"`
+	Emotion   []float32 `json:"Emotion"`
+}
+
+// Place is a set of name and data
+type Place struct {
+	PlaceData PlaceData `json:"PlaceData"`
+	PlaceName string    `json:"PlaceName"`
+}
+
+// Spots is arry of Place data
+type Spots struct {
+	Spot []Place `json:"Spot"`
+}
+
+type SpotsName struct {
+	SpotsName []string `json:"SpotsName"`
 }
 
 // ID is each works data
